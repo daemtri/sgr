@@ -1,0 +1,34 @@
+[package]
+name = "sgr"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-trait = "0.1.68"
+futures = "0.3.28"
+tokio = {version="1.28", features = ["full"]}
+thiserror = "1.0.40"
+anyhow = "1.0.71"
+serde = {version = "1.0", features = ["derive"]}
+serde_yaml = "0.9"
+serde_json = "1.0.96"
+tonic= "0.9"
+prost="0.11"
+tungstenite = "0.19"
+tokio-tungstenite = "0.19"
+log = "0.4"
+env_logger = "0.10"
+sgr_derive = {path = "sgr_derive"}
+sgr_runtime = {path = "sgr_runtime"}
+
+[build-dependencies]
+tonic-build = {version = "0.9",  features = ["prost"] }
+
+[workspace]
+members = [
+    "sgr_runtime",
+    "sgr_derive"
+]
+
