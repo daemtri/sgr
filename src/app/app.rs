@@ -7,7 +7,3 @@ impl App {
     }
     pub fn with_option<T>(&mut self, x: T) {}
 }
-
-pub fn run() {
-    App::default().run();
-}
