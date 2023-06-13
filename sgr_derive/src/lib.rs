@@ -10,65 +10,43 @@ pub fn service_registry_agent(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let enum_name = &input.ident;
 
-    // 获取 enum 的所有成员
-    let enum_data = if let syn::Data::Enum(data) = &input.data {
-        data
-    } else {
-        panic!("ServiceRegistryAgent only supports enums");
-    };
-
-    // 生成 match 语句的 arms
-    let arms: Vec<_> = enum_data
-        .variants
-        .iter()
-        .map(|variant| {
-            // 获取属性
-            let variant_attrs = &variant.attrs;
-            let driver_attr = variant_attrs
-                .iter()
-                .find(|attr| attr.path().is_ident("driver"));
-
-            // 获取 driver 属性的值
-            let driver_value = parse_args_attr_value(&driver_attr.unwrap())
-                .unwrap()
-                .unwrap();
-
-            let variant_name = &variant.ident;
-            if let Fields::Unnamed(variant_ty) = &variant.fields {
-                // 生成 match arm 的代码
-                let variant_ty = variant_ty.unnamed.first().unwrap();
-                (driver_value, variant_name, variant_ty)
-            } else {
-                panic!("ServiceRegistryAgent only supports tuple variants");
-            }
-        })
-        .collect();
+    let arms = parse_enum_arms(&input);
 
     let news = arms.iter().map(|(driver_value, variant_name, variant_ty)| {
         quote! {
-            #driver_value => Self::#variant_name(#variant_ty::default()),
+            #driver_value => {
+                let mut instance = #variant_ty::default();
+                sgr_component::init(&mut instance, args);
+                Self::#variant_name(instance)
+            },
         }
     });
 
     let finds = arms.iter().map(|(_, variant_name, _)| {
         quote! {
-           Self::#variant_name(instance) => instance.find(service_name, id).await,
+           Self::#variant_name(instance) => {
+            sgr_component::ServiceRegistry::find(instance, service_name, id).await
+           },
         }
     });
     let lookups = arms.iter().map(|(_, variant_name, _)| {
         quote! {
-            Self::#variant_name(instance) => instance.lookup(service_name).await,
+            Self::#variant_name(instance) => {
+                sgr_component::ServiceRegistry::lookup(instance,service_name).await
+            },
         }
     });
     let watchs = arms.iter().map(|(_, variant_name, _)| {
         quote! {
-            Self::#variant_name(instance) => instance.watch(service_name).await,
+            Self::#variant_name(instance) => {
+                sgr_component::ServiceRegistry::watch(instance,service_name).await
+            },
         }
     });
     // 生成实现代码的 TokenStream
     let expanded = quote! {
         impl #enum_name {
-            pub fn new(name: String) -> Self {
+            pub fn load(name: String, args: impl sgr_component::Args) -> Self {
                 match name.as_str() {
                     #(#news)*
                     _ => panic!("unknown driver: {}", name),
@@ -77,20 +55,20 @@ pub fn service_registry_agent(input: TokenStream) -> TokenStream {
         }
 
         #[async_trait::async_trait]
-        impl sgr_runtime::component::ServiceRegistry for #enum_name {
-            async fn find(&self, service_name: String, id: String) -> sgr_runtime::component::Result<sgr_runtime::component::ServiceEntry> {
+        impl sgr_component::ServiceRegistry for #enum_name {
+            async fn find(&self, service_name: String, id: String) -> sgr_component::Result<sgr_component::ServiceEntry> {
                 match self {
                     #(#finds)*
                 }
             }
 
-            async fn lookup(&self, service_name: String) -> sgr_runtime::component::Result<Vec<sgr_runtime::component::ServiceEntry>> {
+            async fn lookup(&self, service_name: String) -> sgr_component::Result<Vec<sgr_component::ServiceEntry>> {
                 match self {
                     #(#lookups)*
                 }
             }
 
-            async fn watch(&self, service_name: String) -> sgr_runtime::component::ResultReceiver<Vec<sgr_runtime::component::ServiceEntry>> {
+            async fn watch(&self, service_name: String) -> sgr_component::ResultReceiver<Vec<sgr_component::ServiceEntry>> {
                 match self {
                     #(#watchs)*
                 }
@@ -100,7 +78,72 @@ pub fn service_registry_agent(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-fn parse_enum_arms(input: DeriveInput) -> Vec<(syn::LitStr, syn::Ident, syn::Field)> {
+#[proc_macro_derive(CofiguratorAgent, attributes(driver))]
+pub fn cofigurator_agent(input: TokenStream) -> TokenStream {
+    // 解析输入的类型定义
+    let input = parse_macro_input!(input as DeriveInput);
+    let enum_name = &input.ident;
+
+    let arms = parse_enum_arms(&input);
+
+    let news = arms.iter().map(|(driver_value, variant_name, variant_ty)| {
+        quote! {
+            #driver_value => {
+                let mut instance = #variant_ty::default();
+                sgr_component::Component::init(&mut instance, args);
+                Self::#variant_name(instance)
+            },
+        }
+    });
+
+    let reads = arms.iter().map(|(_, variant_name, _)| {
+        quote! {
+            Self::#variant_name(instance) => {
+                sgr_component::Cofigurator::read_config(instance,path).await
+            },
+        }
+    });
+    let watchs = arms.iter().map(|(_, variant_name, _)| {
+        quote! {
+            Self::#variant_name(instance) => {
+                sgr_component::Cofigurator::watch_config(instance,path).await
+            },
+        }
+    });
+    // 生成实现代码的 TokenStream
+    let expanded = quote! {
+        impl #enum_name {
+            pub fn load(name: String, args: impl sgr_component::Args) -> Self {
+                match name.as_str() {
+                    #(#news)*
+                    _ => panic!("unknown driver: {}", name),
+                }
+            }
+        }
+
+        #[async_trait::async_trait]
+        impl sgr_component::Cofigurator for #enum_name {
+            async fn read_config<T>(&self, path: String) -> sgr_component::Result<T>
+            where
+                T: serde::de::DeserializeOwned + Default {
+                match self {
+                    #(#reads)*
+                }
+            }
+
+            async fn watch_config<T>(&self, path: String) -> sgr_component::ResultReceiver<T>
+            where
+                T: serde::de::DeserializeOwned + Default {
+                match self {
+                    #(#watchs)*
+                }
+            }
+        }
+    };
+    TokenStream::from(expanded)
+}
+
+fn parse_enum_arms(input: &DeriveInput) -> Vec<(syn::LitStr, syn::Ident, syn::Field)> {
     // 获取 enum 的所有成员
     let enum_data = if let syn::Data::Enum(data) = &input.data {
         data
@@ -163,26 +206,4 @@ fn parse_args_attr_value(attr: &syn::Attribute) -> Result<Option<syn::LitStr>, s
         }
     }
     return Ok(None);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use syn::parse_quote;
-
-    #[test]
-    fn test_divide() {
-        let a = parse_args_attr_value(&parse_quote!(#[driver(name = "files")])).unwrap();
-        match a {
-            Some(l) => {
-                dbg!(l.value());
-            }
-            None => {
-                dbg!("None");
-            }
-        }
-    }
-
-    #[test]
-    fn test_all() {}
 }

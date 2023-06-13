@@ -21,14 +21,15 @@ tokio-tungstenite = "0.19"
 log = "0.4"
 env_logger = "0.10"
 sgr_derive = {path = "sgr_derive"}
-sgr_runtime = {path = "sgr_runtime"}
+sgr_component = {path = "sgr_component"}
+clap = "4.3.3"
 
 [build-dependencies]
 tonic-build = {version = "0.9",  features = ["prost"] }
 
 [workspace]
 members = [
-    "sgr_runtime",
+    "sgr_component",
     "sgr_derive"
 ]
 

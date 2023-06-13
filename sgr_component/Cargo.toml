@@ -1,5 +1,5 @@
 [package]
-name = "sgr_runtime"
+name = "sgr_component"
 version = "0.1.0"
 edition = "2021"
 
