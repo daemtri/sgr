@@ -6,9 +6,9 @@ use super::component::{Result,Stream};
 pub trait Configurator {
     async fn read_config<T>(&self, path: String) -> Result<T>
     where
-        T: DeserializeOwned + Default;
+        T: DeserializeOwned + Default + Copy;
 
     async fn watch_config<T>(&self, path: String) -> Stream<T>
     where
-        T: DeserializeOwned + Default;
+        T: DeserializeOwned + Default + Copy + Send;
 }

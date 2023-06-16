@@ -19,22 +19,16 @@ impl Component for FileConfigurator {
 
 #[async_trait::async_trait]
 impl Configurator for FileConfigurator {
-    async fn read_config<T>(&self, path: String) -> Result<T> {
+    async fn read_config<T: Default>(&self, path: String) -> Result<T> {
         unimplemented!()
     }
-    async fn watch_config<T>(&self, path: String) -> Stream<T> {
-        unimplemented!("xxx")
-    }
-}
-
-pub struct ConfigStreamWatcher {
-    path: String,
-}
-
-impl<T> stream::Stream for ConfigStreamWatcher 
-    where T: serde::de::DeserializeOwned {
-    type Item = T;
-     fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Option<Self::Item>> {
-        unimplemented!()
+    async fn watch_config<T: Default>(&self, path: String) -> Stream<T> {
+        let y = stream::unfold(T::default(), |mut t|  {
+            async move {
+                let t = T::default();
+                Some((Ok(t), t))
+            }
+        });
+        Box::pin(y)
     }
 }

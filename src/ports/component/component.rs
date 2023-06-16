@@ -1,6 +1,6 @@
 use serde::de::DeserializeOwned;
-use std::{collections::HashMap, pin::Pin};
-use futures::stream;
+use std::{collections::HashMap};
+use futures::stream::{BoxStream};
 
 pub trait Args {
     fn get_one<T>(&self, key: &str) -> Option<T>
@@ -28,4 +28,4 @@ pub trait Component {
 }
 
 pub type Result<T> = std::io::Result<T>;
-pub type Stream<T> = Pin<Box<dyn stream::Stream<Item = Result<T>>>>;
+pub type Stream<'a,T> = BoxStream<'a,Result<T>>;
