@@ -1,5 +1,7 @@
-pub mod app;
-pub mod bootstrap;
+mod app;
+mod bootstrap;
+mod ports;
+mod adaptors;
 
 fn main() {
     app::run();
