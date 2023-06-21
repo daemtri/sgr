@@ -1,12 +1,10 @@
-use std::borrow::Borrow;
-use std::cell::{Cell, RefCell};
-use std::sync::{Arc, Mutex};
-
 use crate::ports::component::config::Configurator;
 use crate::ports::component::{Component, Result, Stream};
 use futures::stream;
+use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::watch;
+use watchman_client::prelude::*;
 
 pub struct FileConfigurator {
     path: String,
@@ -14,6 +12,15 @@ pub struct FileConfigurator {
 
 impl Component for FileConfigurator {
     fn init(args: impl crate::ports::component::Args) -> Self {
+        tokio::spawn(async {
+            let mut client = Connector::new().connect().await.unwrap();
+            let resolved = client
+                .resolve_root(CanonicalPath::canonicalize(".").unwrap())
+                .await
+                .unwrap();
+            // Basic globs -> names
+            let files = client.glob(&resolved, &["**/*.rs"]).await.unwrap();
+        });
         Self {
             path: String::from("config.json"),
         }

@@ -23,6 +23,7 @@ env_logger = "0.10"
 sgr_derive = {path = "sgr_derive"}
 sgr_component = {path = "sgr_component"}
 clap = "4.3.3"
+watchman_client = "0.8.0"
 
 [build-dependencies]
 tonic-build = {version = "0.9",  features = ["prost"] }
